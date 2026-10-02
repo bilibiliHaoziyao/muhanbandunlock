@@ -47,7 +47,6 @@
                 <Setter Property="FontSize" Value="17" />
                 <Setter Property="MinHeight" Value="48" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="CaretBrush" Value="{StaticResource AccentBrushLight}" />
                 <Setter Property="SelectionHighlightColor" Value="#664C8DFF" />
                 <Setter Property="Template">
                     <Setter.Value>
