@@ -40,7 +40,11 @@ jobs:
 
       - name: Restore NuGet packages
         shell: pwsh
-        run: msbuild MuHanBandUnlock.sln /t:Restore /p:Configuration=Release /p:Platform=x64 /v:minimal
+        run: |
+          foreach ($p in @('x86', 'x64', 'arm64')) {
+            msbuild MuHanBandUnlock\MuHanBandUnlock.csproj /t:Restore /p:Configuration=Release /p:Platform=$p /v:minimal
+            if ($LASTEXITCODE -ne 0) { throw "Restore failed for platform $p" }
+          }
 
       - name: Build app package
         shell: pwsh
