@@ -70,7 +70,7 @@ jobs:
             /t:Publish `
             /m `
             /p:Configuration=Release `
-            /p:Platform=x64 `
+            /p:Platform=arm64 `
             /p:AppxBundle=Always `
             /p:AppxBundlePlatforms="arm64" `
             /p:UapAppxPackageBuildMode=SideloadOnly `
