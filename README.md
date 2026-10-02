@@ -28,7 +28,9 @@
 
 ## 使用方法
 
-1. 从 [Releases](../../releases) 下载 `MuHanBandUnlock-Sideload-Installer.zip` 并解压
+1. 从 [Releases](../../releases) 下载对应架构的安装包并解压：
+   - **x86 / x64**（绝大多数电脑）：`MuHanBandUnlock-Sideload-x86-x64.zip`，支持 Windows 10 1507 及以上
+   - **arm64**（骁龙等 ARM 设备）：`MuHanBandUnlock-Sideload-arm64.zip`，需 Windows 10 1709 及以上（所有 ARM64 Windows 设备均满足）
 2. 双击 `MuHanBandUnlock.cer`，将证书安装到 **受信任的根证书颁发机构**
 3. 在解压目录运行：
 

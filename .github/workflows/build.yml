@@ -46,7 +46,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Restore failed for platform $p" }
           }
 
-      - name: Build app package
+      - name: Build app package (x86 + x64)
         shell: pwsh
         run: |
           msbuild MuHanBandUnlock\MuHanBandUnlock.csproj `
@@ -55,7 +55,7 @@ jobs:
             /p:Configuration=Release `
             /p:Platform=x64 `
             /p:AppxBundle=Always `
-            /p:AppxBundlePlatforms="x86|x64|arm64" `
+            /p:AppxBundlePlatforms="x86|x64" `
             /p:UapAppxPackageBuildMode=SideloadOnly `
             /p:AppxPackageSigningEnabled=true `
             /p:PackageCertificateKeyFile="$env:RUNNER_TEMP\sign.pfx" `
@@ -63,19 +63,40 @@ jobs:
             /p:AppxPackageDir="$env:GITHUB_WORKSPACE\appx\" `
             /v:minimal
 
+      - name: Build app package (arm64)
+        shell: pwsh
+        run: |
+          msbuild MuHanBandUnlock\MuHanBandUnlock.csproj `
+            /t:Publish `
+            /m `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:AppxBundle=Always `
+            /p:AppxBundlePlatforms="arm64" `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxPackageSigningEnabled=true `
+            /p:PackageCertificateKeyFile="$env:RUNNER_TEMP\sign.pfx" `
+            /p:PackageCertificatePassword="MuHanCI" `
+            /p:AppxPackageDir="$env:GITHUB_WORKSPACE\appx_arm64\" `
+            /v:minimal
+
       - name: Collect artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Get-ChildItem -Recurse appx | Select-Object FullName
-          $bundle = Get-ChildItem -Recurse appx -Include *.appxbundle,*.msixbundle | Select-Object -First 1
-          if ($null -eq $bundle) { throw "No app bundle found" }
-          Copy-Item $bundle.FullName "release\$($bundle.Name)"
-          Copy-Item MuHanBandUnlock.cer release\MuHanBandUnlock.cer
-          $testDir = Get-ChildItem -Recurse appx -Directory -Filter *_Test | Select-Object -First 1
-          if ($null -ne $testDir) {
-            Compress-Archive -Path "$($testDir.FullName)\*" -DestinationPath "release\MuHanBandUnlock-Sideload-Installer.zip" -Force
+          foreach ($d in @('appx', 'appx_arm64')) {
+            Get-ChildItem -Recurse $d -ErrorAction SilentlyContinue | Select-Object FullName
           }
+          $bundles = Get-ChildItem -Path appx,appx_arm64 -Recurse -Include *.appxbundle,*.msixbundle -ErrorAction SilentlyContinue
+          if ($null -eq $bundles -or $bundles.Count -eq 0) { throw "No app bundle found" }
+          foreach ($b in $bundles) { Copy-Item $b.FullName "release\$($b.Name)" }
+          Copy-Item MuHanBandUnlock.cer release\MuHanBandUnlock.cer
+          $testDirs = Get-ChildItem -Path appx,appx_arm64 -Recurse -Directory -Filter *_Test -ErrorAction SilentlyContinue
+          foreach ($t in $testDirs) {
+            $suffix = if ($t.Name -like '*arm64*') { 'arm64' } else { 'x86-x64' }
+            Compress-Archive -Path "$($t.FullName)\*" -DestinationPath "release\MuHanBandUnlock-Sideload-$suffix.zip" -Force
+          }
+          Get-ChildItem release | Select-Object Name, Length
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -95,7 +116,11 @@ jobs:
 
             ### 安装方法（Windows 10 / 11）
 
-            1. 下载 `MuHanBandUnlock-Sideload-Installer.zip` 并解压
+            下载对应架构的安装包：
+            - **x86 / x64**（绝大多数电脑）：`MuHanBandUnlock-Sideload-x86-x64.zip`，支持 Windows 10 1507 及以上
+            - **arm64**（骁龙等 ARM 设备）：`MuHanBandUnlock-Sideload-arm64.zip`，需 Windows 10 1709 及以上（所有 ARM64 Windows 设备均满足）
+
+            1. 下载 zip 并解压
             2. 先双击 `MuHanBandUnlock.cer` → 安装证书 → 本地计算机 → 受信任的根证书颁发机构
             3. 在解压目录以 PowerShell 运行：
                ```powershell
