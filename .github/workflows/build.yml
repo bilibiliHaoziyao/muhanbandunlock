@@ -93,7 +93,7 @@ jobs:
           Copy-Item MuHanBandUnlock.cer release\MuHanBandUnlock.cer
           $testDirs = Get-ChildItem -Path appx,appx_arm64 -Recurse -Directory -Filter *_Test -ErrorAction SilentlyContinue
           foreach ($t in $testDirs) {
-            $suffix = if ($t.Name -like '*arm64*') { 'arm64' } else { 'x86-x64' }
+            $suffix = if ($t.FullName -like '*appx_arm64*') { 'arm64' } else { 'x86-x64' }
             Compress-Archive -Path "$($t.FullName)\*" -DestinationPath "release\MuHanBandUnlock-Sideload-$suffix.zip" -Force
           }
           Get-ChildItem release | Select-Object Name, Length
