@@ -1,0 +1,107 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Create signing certificate
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=MuHan" `
+            -KeyUsage DigitalSignature `
+            -FriendlyName "MuHan Band Unlock" `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -NotAfter (Get-Date).AddYears(5)
+          $pwd = ConvertTo-SecureString -String "MuHanCI" -Force -AsPlainText
+          Export-PfxCertificate -Cert $cert -FilePath "$env:RUNNER_TEMP\sign.pfx" -Password $pwd | Out-Null
+          Export-Certificate -Cert $cert -FilePath "$env:RUNNER_TEMP\sign.cer" | Out-Null
+          Copy-Item "$env:RUNNER_TEMP\sign.cer" "$env:GITHUB_WORKSPACE\MuHanBandUnlock.cer"
+
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: msbuild MuHanBandUnlock.sln /t:Restore /p:Configuration=Release /p:Platform=x64 /v:minimal
+
+      - name: Build app package
+        shell: pwsh
+        run: |
+          msbuild MuHanBandUnlock\MuHanBandUnlock.csproj `
+            /t:Publish `
+            /m `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:AppxBundle=Always `
+            /p:AppxBundlePlatforms="x86|x64|arm64" `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxPackageSigningEnabled=true `
+            /p:PackageCertificateKeyFile="$env:RUNNER_TEMP\sign.pfx" `
+            /p:PackageCertificatePassword="MuHanCI" `
+            /p:AppxPackageDir="$env:GITHUB_WORKSPACE\appx\" `
+            /v:minimal
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Get-ChildItem -Recurse appx | Select-Object FullName
+          $bundle = Get-ChildItem -Recurse appx -Include *.appxbundle,*.msixbundle | Select-Object -First 1
+          if ($null -eq $bundle) { throw "No app bundle found" }
+          Copy-Item $bundle.FullName "release\$($bundle.Name)"
+          Copy-Item MuHanBandUnlock.cer release\MuHanBandUnlock.cer
+          $testDir = Get-ChildItem -Recurse appx -Directory -Filter *_Test | Select-Object -First 1
+          if ($null -ne $testDir) {
+            Compress-Archive -Path "$($testDir.FullName)\*" -DestinationPath "release\MuHanBandUnlock-Sideload-Installer.zip" -Force
+          }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuHanBandUnlock-package
+          path: release/
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 慕寒手环解锁 ${{ github.ref_name }}
+          body: |
+            ## 慕寒手环解锁 MuHan Band Unlock
+
+            本工具是用于解锁忘记密码的小米手环的。
+
+            ### 安装方法（Windows 10 / 11）
+
+            1. 下载 `MuHanBandUnlock-Sideload-Installer.zip` 并解压
+            2. 先双击 `MuHanBandUnlock.cer` → 安装证书 → 本地计算机 → 受信任的根证书颁发机构
+            3. 在解压目录以 PowerShell 运行：
+               ```powershell
+               Set-ExecutionPolicy -Scope Process Bypass -Force
+               .\Add-AppDevPackage.ps1
+               ```
+            4. 若系统提示开发者模式，请到 设置 → 更新和安全 → 开发人员选项 中开启
+
+            > 也提供 `.appxbundle` / `.msixbundle` 供高级用户手动安装。
+
+            ### 免责声明
+
+            - 本工具仅供个人解锁自己拥有的设备使用，请勿用于他人设备或任何非法用途
+            - 本工具为第三方开源工具，与小米公司无任何关联
+            - 解锁会重置手环密码，可能清除手环数据，后果自负
+          files: |
+            release/*

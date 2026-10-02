@@ -1,0 +1,38 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userprefs
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM64/
+arm64/
+AppPackages/
+BundleArtifacts/
+Generated Files/
+artifacts/
+appx/
+release/
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+
+# Signing / certificates
+*.pfx
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI
+MuHanBandUnlock.cer
